@@ -8,6 +8,7 @@ import loaderUtils, {
   isUrlRequest,
   stringifyRequest,
   urlToRequest,
+  interpolateName,
 } from 'loader-utils';
 import normalizePath from 'normalize-path';
 import cssesc from 'cssesc';
@@ -118,7 +119,7 @@ function getFilter(filter, resourcePath, defaultFilter = null) {
     }
 
     if (typeof filter === 'function') {
-      return filter(item, resourcePath);
+      return !!filter(item, resourcePath);
     }
 
     return true;
@@ -342,27 +343,41 @@ function getIcssReplacer(item, loaderContext, importPrefix, onlyLocals) {
         )}).locals[${JSON.stringify(item.export)}] + "`;
 }
 
-function prepareCode(file, messages, loaderContext, importPrefix, onlyLocals) {
+async function prepareCode(
+  file,
+  messages,
+  loaderContext,
+  importPrefix,
+  onlyLocals
+) {
   const { apiCode, importCode } = file;
   let { moduleCode, exportCode } = file;
 
-  messages
+  await messages
     .filter(
       (message) =>
         message.type === 'icss-import' ||
-        (message.type === 'import' && message.importType === 'url')
+        (message.type === 'import' && message.importType === 'url') ||
+        (message.type === 'import' && message.importType === 'import')
     )
-    .forEach((message) => {
+    .map((message) => {
       // Replace all urls on `require`
       if (message.type === 'import') {
         const { placeholder } = message;
 
         if (moduleCode) {
           // eslint-disable-next-line no-param-reassign
-          moduleCode = moduleCode.replace(
-            new RegExp(placeholder, 'g'),
-            () => `" + ${placeholder} + "`
-          );
+          moduleCode = moduleCode.replace(new RegExp(placeholder, 'g'), () => {
+            let replaced;
+            // TODO compile related css only once and emit files
+            // TODO imported filename option
+            if (message.importType === 'import') {
+              replaced = `__webpack_public_path__ + ""`;
+            } else {
+              replaced = placeholder;
+            }
+            `" + ${replaced} + "`;
+          });
         }
       }
 

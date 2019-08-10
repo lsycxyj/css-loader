@@ -1,7 +1,12 @@
 import postcss from 'postcss';
 import valueParser from 'postcss-value-parser';
 
-import { uniqWith, getImportItemCode } from '../utils';
+import {
+  uniqWith,
+  getImportItemCode,
+  getUrlHelperCode,
+  getUrlItemCode,
+} from '../utils';
 
 const pluginName = 'postcss-import-parser';
 
@@ -76,11 +81,9 @@ function walkAtRules(css, result, filter) {
       return;
     }
 
-    atRule.remove();
-
     const { url, media } = parsed;
 
-    items.push({ url, media });
+    items.push({ url, media, atRule });
   });
 
   return items;
@@ -96,16 +99,49 @@ export default postcss.plugin(
         (value, other) => value.url === other.url && value.media === other.media
       );
 
-      paths.forEach((item) => {
-        result.messages.push({
-          pluginName,
-          type: 'import',
-          import: getImportItemCode(
-            item,
-            options.loaderContext,
-            options.importPrefix
-          ),
-        });
+      const placeholders = [];
+
+      paths.forEach((item, index) => {
+        // TODO function import mode support
+        const { importMode } = options;
+        if (importMode === 'keep') {
+          const placeholder = `___CSS_LOADER_IMPORT_URL___${index}___`;
+
+          placeholders.push({ placeholder, path: item });
+
+          result.messages.push({
+            pluginName,
+            type: 'import',
+            import: '',
+            importType: 'import',
+            placeholder,
+          });
+        } else {
+          result.messages.push({
+            pluginName,
+            type: 'import',
+            import: getImportItemCode(
+              item,
+              options.loaderContext,
+              options.importPrefix
+            ),
+          });
+        }
+      });
+
+      traversed.forEach((item) => {
+        const { url, atRule } = item;
+        if (atRule) {
+          const value = placeholders.find(
+            (placeholder) => placeholder.path.url === url
+          );
+
+          if (value) {
+            atRule.params = value.placeholder;
+          } else {
+            atRule.remove();
+          }
+        }
       });
     }
 );

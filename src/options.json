@@ -20,6 +20,9 @@
         },
         {
           "instanceof": "Function"
+        },
+        {
+          "enum": ["keep"]
         }
       ]
     },

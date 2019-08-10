@@ -32,6 +32,18 @@ describe('import option', () => {
     expect(stats.compilation.errors).toMatchSnapshot('errors');
   });
 
+  it('keep', async () => {
+    const config = { loader: { options: { import: 'keep' } } };
+    const testId = './import/import.css';
+    const stats = await webpack(testId, config);
+    const json = stats.toJson();
+    const { modules } = json;
+    const module = modules.find((m) => m.id === testId);
+    const evaluatedCode = evaluated(module.source, modules);
+    console.log(evaluatedCode);
+    expect(module.source).toEqual('');
+  });
+
   [true, 'local', 'global', false].forEach((modulesValue) => {
     it(`true and modules \`${modulesValue}\``, async () => {
       const config = {

@@ -76,7 +76,10 @@ export default function loader(content, map, meta) {
       importParser({
         loaderContext: this,
         importPrefix,
-        filter: getFilter(options.import, this.resourcePath),
+        filter: getFilter(options.import, this.resourcePath, (value) =>
+          isUrlRequest(value.url)
+        ),
+        importMode: options.import,
       })
     );
   }
@@ -140,16 +143,14 @@ export default function loader(content, map, meta) {
       const exportCode = getExportCode(exportItems, onlyLocals);
       const apiCode = getApiCode(this, sourceMap, onlyLocals);
 
-      return callback(
-        null,
-        prepareCode(
-          { apiCode, importCode, moduleCode, exportCode },
-          result.messages,
-          this,
-          importPrefix,
-          onlyLocals
-        )
+      const resultCode = prepareCode(
+        { apiCode, importCode, moduleCode, exportCode },
+        result.messages,
+        this,
+        importPrefix,
+        onlyLocals
       );
+      resultCode.then((code) => callback(null, code), callback);
     })
     .catch((error) => {
       callback(
